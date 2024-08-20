@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collision Detection Example</title>
+    <style>
+        canvas {
+            border: 1px solid #333;
+            display: block;
+            margin: 20px auto;
+        }
+        #controls {
+            text-align: center;
+            margin-top: 20px;
+        }
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        button:hover {
+            background-color: #ddd;
+        }
+        button:active {
+            background-color: #ccc;
+        }
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding-top: 60px;
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 70%;
+            max-width: 600px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        .modal-header h2 {
+            margin: 0;
+        }
+        .close {
+            color: #aaa;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover,
+        .close:focus {
+            color: #000;
+        }
+        .modal-body p {
+            margin: 0;
+        }
+        #log {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="500" height="500"></canvas>
+
+    <div id="controls">
+        <button id="collisionButton">Activate Collision</button><br>
+        <button id="infoButton">What is Collision Detection?</button><br>
+        <button id="logButton">Clear Log</button>
+    </div>
+
+    <!-- Modal for information -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>What is Collision Detection?</h2>
+                <span class="close" id="closeModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Collision detection is a technique used in games and simulations to determine when two objects overlap or come into contact. It is essential for detecting interactions, such as when a character runs into a wall or when two objects collide in a physics simulation.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log area -->
+    <div id="log"></div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const logDiv = document.getElementById('log');
+
+        // Rectangle 1 (controlled by W, A, S, D)
+        const rect1 = {
+            x: 50,
+            y: 50,
+            width: 50,
+            height: 50,
+            dx: 0,
+            dy: 0,
+            speed: 5,
+        };
+
+        // Rectangle 2 (static)
+        const rect2 = {
+            x: 200,
+            y: 200,
+            width: 100,
+            height: 100,
+        };
+
+        let collisionActive = false;
+        let collisionLogged = false;
+
+        // Draw rectangles
+        function drawRect(rect, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+        }
+
+        // Update rectangle 1 position
+        function updateRect1Position() {
+            rect1.x += rect1.dx;
+            rect1.y += rect1.dy;
+
+            // Prevent rectangle from going out of canvas bounds
+            if (rect1.x < 0) rect1.x = 0;
+            if (rect1.x + rect1.width > canvas.width) rect1.x = canvas.width - rect1.width;
+            if (rect1.y < 0) rect1.y = 0;
+            if (rect1.y + rect1.height > canvas.height) rect1.y = canvas.height - rect1.height;
+        }
+
+        // Check for collision between two rectangles
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        // Get current timestamp and timezone
+        function getCurrentTime() {
+            const now = new Date();
+            const options = { timeZoneName: 'short' };
+            return now.toLocaleTimeString([], options);
+        }
+
+        // Log collision events
+        function logCollision(status) {
+            const timeStamp = getCurrentTime();
+            const message = `${timeStamp} ${status} (${rect1.x}, ${rect1.y}).\n`;
+            logDiv.textContent += message;
+        }
+
+        // Handle keydown event
+        function moveRect(e) {
+            if (e.key === 'd') rect1.dx = rect1.speed;
+            if (e.key === 'a') rect1.dx = -rect1.speed;
+            if (e.key === 'w') rect1.dy = -rect1.speed;
+            if (e.key === 's') rect1.dy = rect1.speed;
+        }
+
+        // Handle keyup event
+        function stopRect(e) {
+            if (e.key === 'd' || e.key === 'a') rect1.dx = 0;
+            if (e.key === 'w' || e.key === 's') rect1.dy = 0;
+        }
+
+        // Game loop
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Update and draw rect1
+            updateRect1Position();
+            drawRect(rect1, 'blue');
+
+            // Draw rect2
+            drawRect(rect2, 'red');
+
+            // Check collision if activated
+            if (collisionActive && checkCollision(rect1, rect2)) {
+                drawRect(rect1, 'green'); // Change color to indicate collision
+                
+                if (!collisionLogged) {
+                    logCollision('Collision detected at');
+                    collisionLogged = true;
+                }
+            } else if (collisionLogged) {
+                logCollision('Collision gone at');
+                collisionLogged = false;
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event listeners for keyboard input
+        window.addEventListener('keydown', moveRect);
+        window.addEventListener('keyup', stopRect);
+
+        // Event listener for collision button
+        document.getElementById('collisionButton').addEventListener('click', () => {
+            collisionActive = !collisionActive;
+            const button = document.getElementById('collisionButton');
+            button.textContent = collisionActive ? 'Deactivate Collision' : 'Activate Collision';
+        });
+
+        // Event listener for info button
+        const modal = document.getElementById('infoModal');
+        const infoBtn = document.getElementById('infoButton');
+        const closeModal = document.getElementById('closeModal');
+
+        infoBtn.onclick = function() {
+            modal.style.display = 'block';
+        }
+
+        closeModal.onclick = function() {
+            modal.style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        // Event listener for log button
+        document.getElementById('logButton').addEventListener('click', () => {
+            logDiv.textContent = ''; // Clear log
+        });
+
+        // Start game loop
+        gameLoop();
+    </script>
+</body>
+</html>
